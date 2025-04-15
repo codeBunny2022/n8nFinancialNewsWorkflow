@@ -1,0 +1,593 @@
+{
+  "name": "CrowdWisdomTrading",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "00 05 16 * * MON-FRI"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "732cffef-921e-43a6-9317-16e9220c4b76",
+      "name": "Daily Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "stock market OR NASDAQ OR Dow Jones OR S&P 500"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "from",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "apiKey",
+              "value": "941c6addac264bf78acff6b673ed803f"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "8ac6dad7-563d-4dd6-b6df-ac3c92dd559e",
+      "name": "Get News"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst oneHourAgo = new Date(now.getTime() - 60 * 60000);\nreturn [\n  {\n    json: {\n      from: oneHourAgo.toISOString(),\n      to: now.toISOString(),\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "df4c69b7-37c7-40ed-8200-6e32115ecf2a",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.all();\nconst articles = inputData[0].json.articles.slice(0, 5);\nlet combined = '';\n\nfor (const article of articles) {\n  combined += `Title: ${article.title}\\nContent: ${article.description || ''}\\n\\n`;\n}\n\nreturn [\n  {\n    json: {\n      prompt: `Summarize this US financial market news in a professional daily report:${combined}`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "id": "846722a1-dd38-4bc1-a6ce-17ba7617f5e6",
+      "name": "Prepare Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"arliai/qwq-32b-arliai-rpr-v1:free\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a financial report assistant.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.prompt }}\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "39a4df40-22d3-4914-a96a-b74d5923abf2",
+      "name": "Summarise with LLM"
+    },
+    {
+      "parameters": {
+        "jsCode": "const summary = $input.first().json.choices[0].message.content;\nreturn [\n  {\n    json: {\n      prompt: `Translate this financial market report to Arabic:\\n\\n${summary}`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -200
+      ],
+      "id": "9f76f7b0-633b-45c1-a92d-8931fb4dec27",
+      "name": "Prepare AR Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const summary = $input.first().json.choices[0].message.content;\nreturn [\n  {\n    json: {\n      prompt: `Translate this financial market report to German:\\n\\n${summary}`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        200
+      ],
+      "id": "83c24d10-8594-4003-9f2b-41620741481b",
+      "name": "Prepare DE Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const summary = $input.first().json.choices[0].message.content;\nreturn [\n  {\n    json: {\n      prompt: `Translate this financial market report to French:\\n\\n${summary}`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "839d300c-2ff5-40e5-aa73-f74408423358",
+      "name": "Prepare FR Translation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1620,
+        0
+      ],
+      "id": "9127ea36-625c-499a-9030-7f8690957836",
+      "name": "Translate to FR"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/chirag/Desktop/daily-reports/daily-report-fr.txt",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        0
+      ],
+      "id": "0f667d85-fc92-48c9-8bad-cae7b3ec9d24",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompt = $input.first().json.prompt;\n\nreturn [\n  {\n    json: {\n      body: {\n        model: \"arliai/qwq-32b-arliai-rpr-v1:free\",\n        messages: [\n          {\n            role: \"system\",\n            content: \"You are a professional English-to-Arabic translator. Output only the translated Arabic report, and nothing else.\"\n          },\n          {\n            role: \"user\",\n            content: prompt\n          }\n        ]\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        -200
+      ],
+      "id": "80f46817-5205-44a6-b554-27f06c9b5dc4",
+      "name": "setAR"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompt = $input.first().json.prompt;\n\nreturn [\n  {\n    json: {\n      body: {\n        model: \"arliai/qwq-32b-arliai-rpr-v1:free\",\n        messages: [\n          {\n            role: \"system\",\n            content: \"You are a professional English-to-French translator. Output only the translated French report, and nothing else.\"\n          },\n          {\n            role: \"user\",\n            content: prompt\n          }\n        ]\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        0
+      ],
+      "id": "cc61ce91-abf1-4ad4-8b84-ad49fc4ca884",
+      "name": "setFR"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompt = $input.first().json.prompt;\n\nreturn [\n  {\n    json: {\n      body: {\n        model: \"arliai/qwq-32b-arliai-rpr-v1:free\",\n        messages: [\n          {\n            role: \"system\",\n            content: \"You are a professional English-to-German translator. Output only the translated German report, and nothing else.\"\n          },\n          {\n            role: \"user\",\n            content: prompt\n          }\n        ]\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        200
+      ],
+      "id": "f6523fd4-a4dc-4273-96c6-a63887433ada",
+      "name": "setDE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1620,
+        -200
+      ],
+      "id": "85d3e7c7-4d06-4ee6-b551-5d238ebfd7ed",
+      "name": "Translate to AR"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1620,
+        200
+      ],
+      "id": "7e751aa1-fb19-42fc-8fb1-61217c083965",
+      "name": "Translate to DE"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert the JSON input into a string.\nconst jsonStr = JSON.stringify($input.first().json.choices[0].message.content);\n\n// Function to encode a string into a UTF-8 byte array.\nfunction encodeUTF8(str) {\n  var utf8 = [];\n  for (var i = 0; i < str.length; i++) {\n    var charcode = str.charCodeAt(i);\n    if (charcode < 0x80) {\n      utf8.push(charcode);\n    } else if (charcode < 0x800) {\n      utf8.push(0xc0 | (charcode >> 6));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else if (charcode < 0xd800 || charcode >= 0xe000) {\n      utf8.push(0xe0 | (charcode >> 12));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else {\n      // surrogate pair\n      i++;\n      // UTF-16 surrogate pair to Unicode code point\n      charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));\n      utf8.push(0xf0 | (charcode >> 18));\n      utf8.push(0x80 | ((charcode >> 12) & 0x3f));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    }\n  }\n  return new Uint8Array(utf8);\n}\n\n// Function to encode an ArrayBuffer to a Base64 string.\nfunction base64ArrayBuffer(arrayBuffer) {\n  const encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';\n\n  const bytes = new Uint8Array(arrayBuffer);\n  const byteLength = bytes.length;\n  const byteRemainder = byteLength % 3;\n  const mainLength = byteLength - byteRemainder;\n\n  let base64 = '';\n\n  // Process each 3-byte chunk.\n  for (let i = 0; i < mainLength; i += 3) {\n    const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];\n    base64 += encodings[(chunk >> 18) & 63] +\n              encodings[(chunk >> 12) & 63] +\n              encodings[(chunk >> 6) & 63] +\n              encodings[chunk & 63];\n  }\n\n  // Handle the remainder and add padding.\n  if (byteRemainder === 1) {\n    const chunk = bytes[mainLength];\n    base64 += encodings[(chunk >> 2) & 63] +\n              encodings[((chunk & 3) << 4)] +\n              '==';\n  } else if (byteRemainder === 2) {\n    const chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];\n    base64 += encodings[(chunk >> 10) & 63] +\n              encodings[(chunk >> 4) & 63] +\n              encodings[((chunk & 15) << 2)] +\n              '=';\n  }\n\n  return base64;\n}\n\n// Encode the JSON string into a UTF-8 byte array.\nconst byteArray = encodeUTF8(jsonStr);\n// Convert the byte array to a Base64 string.\nconst base64String = base64ArrayBuffer(byteArray.buffer);\n\n// Return the binary data in n8n's expected format.\nreturn [\n  {\n    binary: {\n      data: {\n        data: base64String,\n        mimeType: 'application/octet-stream',\n        fileName: 'output.bin',\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        0
+      ],
+      "id": "f6c3317f-a573-43e8-b76a-ba14834ca052",
+      "name": "Generate Binary FR"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert the JSON input into a string.\nconst jsonStr = JSON.stringify($input.first().json.choices[0].message.content);\n\n// Function to encode a string into a UTF-8 byte array.\nfunction encodeUTF8(str) {\n  var utf8 = [];\n  for (var i = 0; i < str.length; i++) {\n    var charcode = str.charCodeAt(i);\n    if (charcode < 0x80) {\n      utf8.push(charcode);\n    } else if (charcode < 0x800) {\n      utf8.push(0xc0 | (charcode >> 6));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else if (charcode < 0xd800 || charcode >= 0xe000) {\n      utf8.push(0xe0 | (charcode >> 12));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else {\n      // surrogate pair\n      i++;\n      // UTF-16 surrogate pair to Unicode code point\n      charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));\n      utf8.push(0xf0 | (charcode >> 18));\n      utf8.push(0x80 | ((charcode >> 12) & 0x3f));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    }\n  }\n  return new Uint8Array(utf8);\n}\n\n// Function to encode an ArrayBuffer to a Base64 string.\nfunction base64ArrayBuffer(arrayBuffer) {\n  const encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';\n\n  const bytes = new Uint8Array(arrayBuffer);\n  const byteLength = bytes.length;\n  const byteRemainder = byteLength % 3;\n  const mainLength = byteLength - byteRemainder;\n\n  let base64 = '';\n\n  // Process each 3-byte chunk.\n  for (let i = 0; i < mainLength; i += 3) {\n    const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];\n    base64 += encodings[(chunk >> 18) & 63] +\n              encodings[(chunk >> 12) & 63] +\n              encodings[(chunk >> 6) & 63] +\n              encodings[chunk & 63];\n  }\n\n  // Handle the remainder and add padding.\n  if (byteRemainder === 1) {\n    const chunk = bytes[mainLength];\n    base64 += encodings[(chunk >> 2) & 63] +\n              encodings[((chunk & 3) << 4)] +\n              '==';\n  } else if (byteRemainder === 2) {\n    const chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];\n    base64 += encodings[(chunk >> 10) & 63] +\n              encodings[(chunk >> 4) & 63] +\n              encodings[((chunk & 15) << 2)] +\n              '=';\n  }\n\n  return base64;\n}\n\n// Encode the JSON string into a UTF-8 byte array.\nconst byteArray = encodeUTF8(jsonStr);\n// Convert the byte array to a Base64 string.\nconst base64String = base64ArrayBuffer(byteArray.buffer);\n\n// Return the binary data in n8n's expected format.\nreturn [\n  {\n    binary: {\n      data: {\n        data: base64String,\n        mimeType: 'application/octet-stream',\n        fileName: 'output.bin',\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -200
+      ],
+      "id": "7b5c4907-46c0-417d-bf45-c598b72ddebb",
+      "name": "Generate Binary AR"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert the JSON input into a string.\nconst jsonStr = JSON.stringify($input.first().json.choices[0].message.content);\n\n// Function to encode a string into a UTF-8 byte array.\nfunction encodeUTF8(str) {\n  var utf8 = [];\n  for (var i = 0; i < str.length; i++) {\n    var charcode = str.charCodeAt(i);\n    if (charcode < 0x80) {\n      utf8.push(charcode);\n    } else if (charcode < 0x800) {\n      utf8.push(0xc0 | (charcode >> 6));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else if (charcode < 0xd800 || charcode >= 0xe000) {\n      utf8.push(0xe0 | (charcode >> 12));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    } else {\n      // surrogate pair\n      i++;\n      // UTF-16 surrogate pair to Unicode code point\n      charcode = 0x10000 + (((charcode & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));\n      utf8.push(0xf0 | (charcode >> 18));\n      utf8.push(0x80 | ((charcode >> 12) & 0x3f));\n      utf8.push(0x80 | ((charcode >> 6) & 0x3f));\n      utf8.push(0x80 | (charcode & 0x3f));\n    }\n  }\n  return new Uint8Array(utf8);\n}\n\n// Function to encode an ArrayBuffer to a Base64 string.\nfunction base64ArrayBuffer(arrayBuffer) {\n  const encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';\n\n  const bytes = new Uint8Array(arrayBuffer);\n  const byteLength = bytes.length;\n  const byteRemainder = byteLength % 3;\n  const mainLength = byteLength - byteRemainder;\n\n  let base64 = '';\n\n  // Process each 3-byte chunk.\n  for (let i = 0; i < mainLength; i += 3) {\n    const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];\n    base64 += encodings[(chunk >> 18) & 63] +\n              encodings[(chunk >> 12) & 63] +\n              encodings[(chunk >> 6) & 63] +\n              encodings[chunk & 63];\n  }\n\n  // Handle the remainder and add padding.\n  if (byteRemainder === 1) {\n    const chunk = bytes[mainLength];\n    base64 += encodings[(chunk >> 2) & 63] +\n              encodings[((chunk & 3) << 4)] +\n              '==';\n  } else if (byteRemainder === 2) {\n    const chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];\n    base64 += encodings[(chunk >> 10) & 63] +\n              encodings[(chunk >> 4) & 63] +\n              encodings[((chunk & 15) << 2)] +\n              '=';\n  }\n\n  return base64;\n}\n\n// Encode the JSON string into a UTF-8 byte array.\nconst byteArray = encodeUTF8(jsonStr);\n// Convert the byte array to a Base64 string.\nconst base64String = base64ArrayBuffer(byteArray.buffer);\n\n// Return the binary data in n8n's expected format.\nreturn [\n  {\n    binary: {\n      data: {\n        data: base64String,\n        mimeType: 'application/octet-stream',\n        fileName: 'output.bin',\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        200
+      ],
+      "id": "b63add50-c687-45e8-93f8-e9495354aaa6",
+      "name": "Generate Binary DE"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/chirag/Desktop/daily-reports/daily-report-de.txt",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        200
+      ],
+      "id": "48fe92ff-a128-454c-9af4-edd570c29c1b",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/chirag/Desktop/daily-reports/daily-report-ar.txt",
+        "dataPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        -200
+      ],
+      "id": "02471b51-24d7-4e5e-9e44-932f34fc6278",
+      "name": "Read/Write Files from Disk2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Summarise with LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise with LLM": {
+      "main": [
+        [
+          {
+            "node": "Prepare FR Translation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare AR Prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare DE Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare FR Translation": {
+      "main": [
+        [
+          {
+            "node": "setFR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate to FR": {
+      "main": [
+        [
+          {
+            "node": "Generate Binary FR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AR Prompt": {
+      "main": [
+        [
+          {
+            "node": "setAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setFR": {
+      "main": [
+        [
+          {
+            "node": "Translate to FR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DE Prompt": {
+      "main": [
+        [
+          {
+            "node": "setDE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setAR": {
+      "main": [
+        [
+          {
+            "node": "Translate to AR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setDE": {
+      "main": [
+        [
+          {
+            "node": "Translate to DE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate to AR": {
+      "main": [
+        [
+          {
+            "node": "Generate Binary AR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate to DE": {
+      "main": [
+        [
+          {
+            "node": "Generate Binary DE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Binary FR": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Binary AR": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Binary DE": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "73ccf734-81c6-4fe5-afe6-7a30caac951c",
+  "meta": {
+    "instanceId": "c4b2bccd86ce0892bbf56427b0d7c4638999b8cf70b434308d28c88af551ba0c"
+  },
+  "id": "mjFQPsnmAmJUO1HB",
+  "tags": []
+}
